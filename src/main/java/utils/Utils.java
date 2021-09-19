@@ -1,9 +1,8 @@
 package utils;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.util.stream.Collectors;
 
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL20.glGetShaderInfoLog;
@@ -23,10 +22,18 @@ public class Utils {
 	 * @return a string with the file content
 	 * @throws IOException if an I/O error occurs reading from the stream
 	 */
-	// source: https://stackoverflow.com/a/326440
+	// sources: https://mkyong.com/java/java-read-a-file-from-resources-folder/
+	// https://www.baeldung.com/convert-input-stream-to-string#converting-with-java-8---bufferedreader
 	public static String readFile(String path, Charset encoding) throws IOException {
-		byte[] encoded = Files.readAllBytes(Paths.get(path));
-		return new String(encoded, encoding);
+		ClassLoader classLoader = Utils.class.getClassLoader();
+		InputStream inputStream = classLoader.getResourceAsStream(path);
+		if (inputStream == null) {
+			throw new FileNotFoundException(path);
+		} else {
+			InputStreamReader streamReader = new InputStreamReader(inputStream, encoding);
+			BufferedReader reader = new BufferedReader(streamReader);
+			return reader.lines().collect(Collectors.joining("\n"));
+		}
 	}
 
 	/**

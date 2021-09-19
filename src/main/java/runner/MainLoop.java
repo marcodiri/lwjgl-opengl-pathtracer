@@ -112,8 +112,8 @@ public class MainLoop {
 	 */
 	private void createQuadProgram() throws IOException {
 		QuadProgram.program = createProgram(
-				readFile("src/main/resources/quad.vert"),
-				readFile("src/main/resources/quad.frag"));
+				readFile("shaders/quad.vert"),
+				readFile("shaders/quad.frag"));
 
 		// save attribute variable location and make it point to the quad model
 		QuadProgram.aPosition = glGetAttribLocation(QuadProgram.program, "a_Position");
@@ -136,7 +136,7 @@ public class MainLoop {
 	 */
 	private void createRayTracingProgram() throws IOException {
 		RayTracingProgram.program = createComputeProgram(
-				readFile("src/main/resources/raytracing.glsl"));
+				readFile("shaders/raytracing.glsl"));
 		glUseProgram(RayTracingProgram.program);
 
 		// get the number of threads per work group that we specified in the shader
