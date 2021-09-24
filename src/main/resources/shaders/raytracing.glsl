@@ -51,6 +51,15 @@ struct hitinfo {
     int id;
 };
 
+/**
+ * Computes the value of the parameter t=(tmin,tmax) at the enter and exit point
+ * of the ray = 'origin + t * direction' in the sphere.
+ * If no intersection is found t=(-1,-1).
+ * @param origin the starting point of the ray
+ * @param direction the direction of the ray
+ * @param s the sphere testing for intersection
+ * @return (tmin,tmax) if intersection is found or (-1,-1) otherwise
+ */
 vec2 intersect(vec3 origin, vec3 direction, const sphere s) {
     vec3 op = s.center - origin;
     float dop = dot(op, direction);
@@ -66,6 +75,14 @@ vec2 intersect(vec3 origin, vec3 direction, const sphere s) {
     return vec2(-1.0);
 }
 
+/**
+ * Computes the intersection between the ray and every sphere and returns
+ * information in the 'info' output varible.
+ * @param origin the starting point of the ray
+ * @param direction the direction of the ray
+ * @param info the variable in which to save intersection information
+ * @return true if the ray intersects a sphere, false otherwise
+ */
 bool intersectAll(vec3 origin, vec3 direction, out hitinfo info) {
     vec2 ray_t = vec2(NEAR, FAR);
     bool found = false;
@@ -94,8 +111,11 @@ bool intersectAll(vec3 origin, vec3 direction, out hitinfo info) {
     return found;
 }
 
-/*
- * For now, just return some shade of gray based on the sphere index
+/**
+ * For now, just return some shade of gray based on the sphere index.
+ * @param origin the starting point of the ray
+ * @param direction the direction of the ray
+ * @return the color of the pixel intersected by the ray
  */
 vec3 radiance(vec3 origin, vec3 direction) {
     hitinfo hit;
