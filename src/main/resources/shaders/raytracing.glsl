@@ -31,23 +31,30 @@ uniform vec3 eye, ray00, ray01, ray10, ray11;
 struct sphere {
     float radius;
     vec3 center;
+    float emission;
 };
 
 #define NUM_SPHERES 9
 const sphere spheres[NUM_SPHERES] = {
-{ 1E5, vec3(1E5 + 1, 40.8, 81.6) },   // left wall
-{ 1E5, vec3(-1E5 + 99, 40.8, 81.6) }, // right wall
-{ 1E5, vec3(50, 40.8, 1E5) },         // back wall
-{ 1E5, vec3(50, 40.8, -1E5 + 270) },  // front wall
-{ 1E5, vec3(50, 1E5, 81.6) },         // bottom wall (floor)
-{ 1E5, vec3(50, -1E5 + 81.6, 81.6) }, // top wall
-{ 16.5, vec3(27, 16.5, 47) },         // mirroring sphere (specular material)
-{ 16.5, vec3(73, 16.5, 78) },         // glass sphere (refractive material)
-{ 600, vec3(50, 681.6 - .27, 81.6) }  // light
+{ 1E5 , vec3(1E5 + 1, 40.8, 81.6)  , -1.0 }, // left wall
+{ 1E5 , vec3(-1E5 + 99, 40.8, 81.6), -1.0 }, // right wall
+{ 1E5 , vec3(50, 40.8, 1E5)        , -1.0 }, // back wall
+{ 1E5 , vec3(50, 40.8, -1E5 + 270) , -1.0 }, // front wall
+{ 1E5 , vec3(50, 1E5, 81.6)        , -1.0 }, // bottom wall (floor)
+{ 1E5 , vec3(50, -1E5 + 81.6, 81.6), -1.0 }, // top wall
+{ 16.5, vec3(27, 16.5, 47)         , -1.0 }, // mirroring sphere (specular material)
+{ 16.5, vec3(73, 16.5, 78)         , -1.0 }, // glass sphere (refractive material)
+{ 600 , vec3(50, 681.6 - .27, 81.6), 10.0 }  // light
 };
 
+// decleare functions in random.glsl
+vec4 random(vec2 f);
+vec3 cos_weighted_random_hemisphere_direction(vec3 n, vec2 rand);
+
+vec4 rand;
+
 struct hitinfo {
-    vec2 t;
+    float t_near;
     int id;
 };
 
@@ -97,18 +104,28 @@ bool intersectAll(vec3 origin, vec3 direction, out hitinfo info) {
          */
         if (ray_t.x < t.x && t.x < ray_t.y) {
             ray_t.y = t.x;
-            info.t = t;
+            info.t_near = t.x;
             info.id = i;
             found = true;
         }
         if (ray_t.x < t.y && t.y < ray_t.y) {
             ray_t.y = t.y;
-            info.t = t;
+            info.t_near = t.y;
             info.id = i;
             found = true;
         }
     }
     return found;
+}
+
+/*
+ * Compute the normal of a sphere at the given point.
+ * @param p a point on the sphere
+ * @param s the sphere
+ * @return the unit vector normal to 's' at 'p'
+ */
+vec3 normalForSphere(vec3 p, const sphere s) {
+    return normalize(p - s.center);
 }
 
 /**
@@ -118,12 +135,36 @@ bool intersectAll(vec3 origin, vec3 direction, out hitinfo info) {
  * @return the color of the pixel intersected by the ray
  */
 vec3 radiance(vec3 origin, vec3 direction) {
-    hitinfo hit;
-    if (intersectAll(origin, direction, hit)) {
-        vec3 gray = vec3(hit.id / 10.0 + 0.1);
-        return gray;
+    vec3 albedo = vec3(1.0); // amount of incoming light that gets reflected off of the surface
+    vec3 radiance = vec3(0.0);
+    for (int b = 0; b < 5; b++) {
+        hitinfo hit;
+        vec3 normal;
+        if (intersectAll(origin, direction, hit)) {
+            sphere s = spheres[hit.id];
+            vec3 hit_point = origin + direction * hit.t_near;
+            normal = normalForSphere(hit_point, s);
+            // if we are inside the sphere the normal should point inward
+            normal = dot(normal, direction) > 0 ? normal : -normal;
+
+            vec3 color = vec3(hit.id / 10.0 + 0.1);
+            albedo *= color;
+            if (s.emission > 0) {
+                radiance += albedo * s.emission;
+            }
+
+            /*
+             * Because of float precision the hit point may be a tad inside the sphere,
+             * so move the origin a bit along the normal just to be sure we are out
+             */
+            origin = hit_point + normal * NEAR;
+            direction = cos_weighted_random_hemisphere_direction(normal, rand.xy);
+        } else {
+            break;
+        }
     }
-    return vec3(0.0, 0.0, 0.0);
+    // the ray did not hit any light source => the ray does not transport any light to the eye
+    return radiance;
 }
 
 void main(void) {
@@ -144,6 +185,9 @@ void main(void) {
     if (pixel.x >= size.x || pixel.y >= size.y) {
         return;
     }
+
+    // init random values
+    rand = random(vec2(pixel));
 
     /*
      * As explaned in
