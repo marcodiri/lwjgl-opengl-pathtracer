@@ -2,6 +2,7 @@ package utils;
 
 import java.io.*;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 
 import static org.lwjgl.opengl.GL20.*;
@@ -109,9 +110,9 @@ public class Utils {
 	 * @param cShader the compute shader program (string)
 	 * @return the program object id
 	 */
-	public static int createComputeProgram(String cShader) {
-		return createProgram(
-				new int[]{GL_COMPUTE_SHADER},
-				new String[]{cShader});
+	public static int createComputeProgram(String... cShader) {
+		int[] types = new int[cShader.length];
+		Arrays.fill(types, GL_COMPUTE_SHADER);
+		return createProgram(types, cShader);
 	}
 }
