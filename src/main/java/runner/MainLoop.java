@@ -136,6 +136,7 @@ public class MainLoop {
 	 */
 	private void createRayTracingProgram() throws IOException {
 		RayTracingProgram.program = createComputeProgram(
+				readFile("shaders/random.glsl"),
 				readFile("shaders/raytracing.glsl"));
 		glUseProgram(RayTracingProgram.program);
 
