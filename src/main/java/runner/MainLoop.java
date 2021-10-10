@@ -55,8 +55,8 @@ public class MainLoop {
 	 * Lecture 03-B "Frames in Graphics", slide 25.
 	 */
 	private static class Eye {
-		public static final Vector3f position = new Vector3f(3.0f, 3.0f, 2.0f);
-		public static final Vector3f lookAt = new Vector3f(3.0f, 2f, 16.0f);
+		public static final Vector3f position = new Vector3f(3.0f, 3.5f, 2.0f);
+		public static final Vector3f lookAt = new Vector3f(3.0f, 1.5f, 16.0f);
 		public static final Vector3f up = new Vector3f(0.0f, 1.0f, 0.0f);
 	}
 

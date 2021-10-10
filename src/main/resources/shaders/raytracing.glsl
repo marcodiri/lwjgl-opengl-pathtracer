@@ -39,7 +39,7 @@ struct sphere {
 };
 
 #define NUM_BOXES 6
-#define NUM_SPHERES 2
+#define NUM_SPHERES 3
 
 float WIDTH = 6;
 float DEPTH = 15;
@@ -54,8 +54,9 @@ const box boxes[NUM_BOXES] = {
 };
 
 const sphere spheres[NUM_SPHERES] = {
-{1, vec3(4.0, 1, 13.0)},
-{18.03, vec3(WIDTH/2, 18.0+5.0, DEPTH/2+2.3)}  // light
+{1, vec3(4.3, 1, 12.5)},
+{1, vec3(1.7, 1, 11.2)},
+{18.03, vec3(WIDTH/2, 18.0+5.0, DEPTH*3/4)}  // light
 };
 
 struct hitinfo {
