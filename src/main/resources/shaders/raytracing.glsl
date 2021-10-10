@@ -25,31 +25,53 @@ uniform vec3 eye, ray00, ray01, ray10, ray11;
 #define FAR 1E+10
 
 /*
- * Sphere representation, scene, intersect algorithm taken from
+ * Scene, intersect algorithms taken from
  * http://kevinbeason.com/smallpt/
+ * https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-%28Part-I%29
  */
+struct box {
+    vec3 min, max;
+};
+
 struct sphere {
     float radius;
     vec3 center;
 };
 
-#define NUM_SPHERES 9
+#define NUM_BOXES 6
+#define NUM_SPHERES 2
+
+float WIDTH = 6;
+float DEPTH = 15;
+float HEIGHT = 5;
+const box boxes[NUM_BOXES] = {
+{vec3(WIDTH,  0.0, 0.0), vec3( WIDTH+.1, HEIGHT,  DEPTH)},  // left wall
+{vec3(-0.1,  0.0, 0), vec3(0, HEIGHT, DEPTH)},              // right wall
+{vec3(0,  0.0, 0), vec3(WIDTH, HEIGHT, 0.1)},               // back wall
+{vec3(0,  0.0,  DEPTH), vec3(WIDTH, HEIGHT,  DEPTH+.1)},    // front wall
+{vec3(0.0, -0.1, 0.0), vec3(WIDTH, 0.0,  DEPTH)},           // floor
+{vec3(0, HEIGHT, 0), vec3(WIDTH, HEIGHT+.1,  DEPTH)}        // ceiling
+};
+
 const sphere spheres[NUM_SPHERES] = {
-{ 1E5, vec3(1E5 + 1, 40.8, 81.6) },   // left wall
-{ 1E5, vec3(-1E5 + 99, 40.8, 81.6) }, // right wall
-{ 1E5, vec3(50, 40.8, 1E5) },         // back wall
-{ 1E5, vec3(50, 40.8, -1E5 + 270) },  // front wall
-{ 1E5, vec3(50, 1E5, 81.6) },         // bottom wall (floor)
-{ 1E5, vec3(50, -1E5 + 81.6, 81.6) }, // top wall
-{ 16.5, vec3(27, 16.5, 47) },         // mirroring sphere (specular material)
-{ 16.5, vec3(73, 16.5, 78) },         // glass sphere (refractive material)
-{ 600, vec3(50, 681.6 - .27, 81.6) }  // light
+{1, vec3(4.0, 1, 13.0)},
+{18.03, vec3(WIDTH/2, 18.0+5.0, DEPTH/2+2.3)}  // light
 };
 
 struct hitinfo {
     vec2 t;
     int id;
 };
+
+vec2 intersectBox(vec3 origin, vec3 direction, const box b) {
+    vec3 tMin = (b.min - origin) / direction;
+    vec3 tMax = (b.max - origin) / direction;
+    vec3 t1 = min(tMin, tMax);
+    vec3 t2 = max(tMin, tMax);
+    float tNear = max(max(t1.x, t1.y), t1.z);
+    float tFar = min(min(t2.x, t2.y), t2.z);
+    return vec2(tNear, tFar);
+}
 
 /**
  * Computes the value of the parameter t=(tmin,tmax) at the enter and exit point
@@ -60,7 +82,7 @@ struct hitinfo {
  * @param s the sphere testing for intersection
  * @return (tmin,tmax) if intersection is found or (-1,-1) otherwise
  */
-vec2 intersect(vec3 origin, vec3 direction, const sphere s) {
+vec2 intersectSphere(vec3 origin, vec3 direction, const sphere s) {
     vec3 op = s.center - origin;
     float dop = dot(op, direction);
     float D = dop * dop - dot(op, op) + s.radius * s.radius;
@@ -76,18 +98,29 @@ vec2 intersect(vec3 origin, vec3 direction, const sphere s) {
 }
 
 /**
- * Computes the intersection between the ray and every sphere and returns
+ * Computes the intersection between the ray and every object and returns
  * information in the 'info' output varible.
  * @param origin the starting point of the ray
  * @param direction the direction of the ray
  * @param info the variable in which to save intersection information
- * @return true if the ray intersects a sphere, false otherwise
+ * @return true if the ray intersects an object, false otherwise
  */
-bool intersectAll(vec3 origin, vec3 direction, out hitinfo info) {
+bool intersect(vec3 origin, vec3 direction, out hitinfo info) {
     vec2 ray_t = vec2(NEAR, FAR);
     bool found = false;
+
+    for (int i = 0; i < NUM_BOXES; i++) {
+        vec2 t = intersectBox(origin, direction, boxes[i]);
+        if (t.y >= 0.0 && t.x < t.y && t.x < ray_t.y) {
+            info.t.x = t.x;
+            info.id = i;
+            ray_t.y = t.x;
+            found = true;
+        }
+    }
+
     for (int i = 0; i < NUM_SPHERES; i++) {
-        vec2 t = intersect(origin, direction, spheres[i]);
+        vec2 t = intersectSphere(origin, direction, spheres[i]);
         /*
          * if the sphere we hit is behind us, t.x and t.y are both negative,
          * otherwise:
@@ -119,7 +152,7 @@ bool intersectAll(vec3 origin, vec3 direction, out hitinfo info) {
  */
 vec3 radiance(vec3 origin, vec3 direction) {
     hitinfo hit;
-    if (intersectAll(origin, direction, hit)) {
+    if (intersect(origin, direction, hit)) {
         vec3 gray = vec3(hit.id / 10.0 + 0.1);
         return gray;
     }
