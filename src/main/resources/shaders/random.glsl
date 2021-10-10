@@ -35,21 +35,15 @@ vec3 cos_weighted_random_hemisphere_direction(vec3 n, vec2 rand) {
 /**
  * Hash function to be used with the random number generator.
  */
-uvec4 pcg4d(uvec4 v) {
+uvec3 pcg3d(uvec3 v) {
     v = v * 1664525u + 1013904223u;
-
-    v.x += v.y*v.w;
-    v.y += v.z*v.x;
-    v.z += v.x*v.y;
-    v.w += v.y*v.z;
-
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
     v ^= v >> 16u;
-
-    v.x += v.y*v.w;
-    v.y += v.z*v.x;
-    v.z += v.x*v.y;
-    v.w += v.y*v.z;
-
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
     return v;
 }
 
@@ -60,19 +54,17 @@ uvec4 pcg4d(uvec4 v) {
  * I chose pcg4d to generate a vector of 4 random numbers at once,
  * if you use a hash returning a single float you can just call the function
  * more times (with a different input).
- * As input I just use the vec2 of the pixel coordinates and a function of them
- * as the other two coordinates to pass to the pcg4d function as shown in the shadertoy example.
  * source: https://amindforeverprogramming.blogspot.com/2013/07/random-floats-in-glsl-330.html
  */
-vec4 random(vec2 f) {
+vec3 random(vec3 f) {
     const uint mantissaMask = 0x007FFFFFu;
     const uint one          = 0x3F800000u;
 
-    uvec2 s = floatBitsToUint(f);
-    uvec4 h = pcg4d( uvec4(s, s.x ^ s.y, s.x + s.y) );
+    uvec3 s = floatBitsToUint(f);
+    uvec3 h = pcg3d(s);
     h &= mantissaMask;
     h |= one;
 
-    vec4  r2 = uintBitsToFloat( h );
+    vec3  r2 = uintBitsToFloat(h);
     return r2 - 1.0;
 }

@@ -17,6 +17,7 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15C.GL_READ_WRITE;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL20.glGetUniformLocation;
+import static org.lwjgl.opengl.GL20C.glUniform1f;
 import static org.lwjgl.opengl.GL20C.glUniform3f;
 import static org.lwjgl.opengl.GL20C.glUseProgram;
 import static org.lwjgl.opengl.GL30.GL_RGBA32F;
@@ -82,6 +83,7 @@ public class MainLoop {
 	private static class RayTracingProgram {
 		public static int program;
 		public static int u_Eye, u_Ray00, u_Ray01, u_Ray10, u_Ray11;
+		public static int u_Time;
 		public static int workGroupSizeX, workGroupSizeY; // in CUDA this would be the block size
 	}
 
@@ -152,6 +154,7 @@ public class MainLoop {
 		RayTracingProgram.u_Ray01 = glGetUniformLocation(RayTracingProgram.program, "ray01");
 		RayTracingProgram.u_Ray10 = glGetUniformLocation(RayTracingProgram.program, "ray10");
 		RayTracingProgram.u_Ray11 = glGetUniformLocation(RayTracingProgram.program, "ray11");
+		RayTracingProgram.u_Time = glGetUniformLocation(RayTracingProgram.program, "time");
 		glUseProgram(0);
 	}
 
@@ -168,7 +171,7 @@ public class MainLoop {
 	/**
 	 * Prepares the ray tracing program and runs it.
 	 */
-	private void trace() {
+	private void trace(float time) {
 		glUseProgram(RayTracingProgram.program);
 
 		// set the viewProjMatrix as we did in the labs
@@ -177,6 +180,8 @@ public class MainLoop {
 				(float) WIDTH / HEIGHT,
 				Z_NEAR, Z_FAR);
 		viewMatrix.setLookAt(Eye.position, Eye.lookAt, Eye.up);
+
+		glUniform1f(RayTracingProgram.u_Time, time);
 
 		// set the eye position and frustum uniform variables (world coordinates)
 		glUniform3f(RayTracingProgram.u_Eye, Eye.position.x, Eye.position.y, Eye.position.z);
@@ -269,7 +274,7 @@ public class MainLoop {
 	 */
 	private void loop() {
 		while (!windowManager.shouldClose()) {
-			trace();
+			trace(System.nanoTime() / 1E9f);
 			renderQuad();
 			windowManager.update();
 		}
