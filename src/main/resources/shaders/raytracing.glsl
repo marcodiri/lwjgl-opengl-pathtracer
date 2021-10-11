@@ -62,10 +62,10 @@ struct Sphere {
 
 float W = 6, H = 5, D = 15;  // room width, height, depth
 const Box boxes[NUM_BOXES] = {
-{ vec3(  W,   0,  0), vec3(W+.1,    H,    D), vec3(.75, .75, .75), 0 },  // left wall
-{ vec3(-.1,   0,  0), vec3(   0,    H,    D), vec3(.75, .75, .75), 0 },  // right wall
-{ vec3(  0,   0,  0), vec3(   W,    H,   .1), vec3(.25, .25, .75), 0 },  // back wall
-{ vec3(  0,   0,  D), vec3(   W,    H, D+.1), vec3(.75, .25, .25), 0 },  // front wall
+{ vec3(  W,   0,  0), vec3(W+.1,    H,    D), vec3(.75, .25, .25), 0 },  // left wall
+{ vec3(-.1,   0,  0), vec3(   0,    H,    D), vec3(.25, .25, .75), 0 },  // right wall
+{ vec3(  0,   0,  0), vec3(   W,    H,   .1), vec3(.75, .75, .75), 0 },  // back wall
+{ vec3(  0,   0,  D), vec3(   W,    H, D+.1), vec3(.75, .75, .75), 0 },  // front wall
 { vec3(  0, -.1,  0), vec3(   W,    0,    D), vec3(.75, .75, .75), 0 },  // floor
 { vec3(  0,   H,  0), vec3(   W, H+.1,    D), vec3(.75, .75, .75), 0 }   // ceiling
 };
