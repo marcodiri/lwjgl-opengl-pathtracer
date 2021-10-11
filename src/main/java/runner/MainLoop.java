@@ -149,12 +149,12 @@ public class MainLoop {
 		RayTracingProgram.workGroupSizeY = workGroupSize.get(1);
 
 		// save uniform variables location
-		RayTracingProgram.u_Eye = glGetUniformLocation(RayTracingProgram.program, "eye");
-		RayTracingProgram.u_Ray00 = glGetUniformLocation(RayTracingProgram.program, "ray00");
-		RayTracingProgram.u_Ray01 = glGetUniformLocation(RayTracingProgram.program, "ray01");
-		RayTracingProgram.u_Ray10 = glGetUniformLocation(RayTracingProgram.program, "ray10");
-		RayTracingProgram.u_Ray11 = glGetUniformLocation(RayTracingProgram.program, "ray11");
-		RayTracingProgram.u_Time = glGetUniformLocation(RayTracingProgram.program, "time");
+		RayTracingProgram.u_Eye = glGetUniformLocation(RayTracingProgram.program, "u_Eye");
+		RayTracingProgram.u_Ray00 = glGetUniformLocation(RayTracingProgram.program, "u_Ray00");
+		RayTracingProgram.u_Ray01 = glGetUniformLocation(RayTracingProgram.program, "u_Ray01");
+		RayTracingProgram.u_Ray10 = glGetUniformLocation(RayTracingProgram.program, "u_Ray10");
+		RayTracingProgram.u_Ray11 = glGetUniformLocation(RayTracingProgram.program, "u_Ray11");
+		RayTracingProgram.u_Time = glGetUniformLocation(RayTracingProgram.program, "u_Time");
 		glUseProgram(0);
 	}
 

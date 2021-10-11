@@ -8,7 +8,7 @@ layout (local_size_x = 16, local_size_y = 8) in;
 
 /*
  * Bind the buffer to image unit 0 and set its format
- * same thing as doing glUniform1i(u_Framebuffer_location, 0) on the host
+ * same as doing glUniform1i(u_Framebuffer_location, 0) on the host
  * https://www.khronos.org/opengl/wiki/Layout_Qualifier_(GLSL)#Binding_points
  */
 layout(binding = 0, rgba32f) uniform image2D u_Framebuffer;
@@ -19,8 +19,8 @@ layout(binding = 0, rgba32f) uniform image2D u_Framebuffer;
  * as suggested in:
  * https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-%28Part-I%29#camera
  */
-uniform vec3 eye, ray00, ray01, ray10, ray11;
-uniform float time; // useful for random number generation
+uniform vec3 u_Eye, u_Ray00, u_Ray01, u_Ray10, u_Ray11;
+uniform float u_Time; // useful for random number generation
 
 #define NEAR 1E-4
 #define FAR 1E+10
@@ -31,7 +31,7 @@ vec3 cos_weighted_random_hemisphere_direction(vec3 n, vec2 rand);
 
 ivec2 pixel;
 
-struct hitinfo {
+struct HitInfo {
     float t_near;
     vec3 normal;
     int id;
@@ -59,22 +59,20 @@ struct Sphere {
 #define NUM_BOXES 6
 #define NUM_SPHERES 3
 
-float WIDTH = 6;
-float HEIGHT = 5;
-float DEPTH = 15;
+float W = 6, H = 5, D = 15;  // room width, height, depth
 const Box boxes[NUM_BOXES] = {
-{ vec3(WIDTH,    0.0,   0.0), vec3(WIDTH+.1,    HEIGHT,    DEPTH), vec3(.75, .75, .75), 0.0 },  // left wall
-{ vec3( -0.1,    0.0,   0.0), vec3(     0.0,    HEIGHT,    DEPTH), vec3(.75, .75, .75), 0.0 },  // right wall
-{ vec3(  0.0,    0.0,   0.0), vec3(   WIDTH,    HEIGHT,      0.1), vec3(.25, .25, .75), 0.0 },  // back wall
-{ vec3(  0.0,    0.0, DEPTH), vec3(   WIDTH,    HEIGHT, DEPTH+.1), vec3(.75, .25, .25), 0.0 },  // front wall
-{ vec3(  0.0,   -0.1,   0.0), vec3(   WIDTH,       0.0,    DEPTH), vec3(.75, .75, .75), 0.0 },  // floor
-{ vec3(  0.0, HEIGHT,   0.0), vec3(   WIDTH, HEIGHT+.1,    DEPTH), vec3(.75, .75, .75), 0.0 }   // ceiling
+{ vec3(  W,   0,  0), vec3(W+.1,    H,    D), vec3(.75, .75, .75), 0 },  // left wall
+{ vec3(-.1,   0,  0), vec3(   0,    H,    D), vec3(.75, .75, .75), 0 },  // right wall
+{ vec3(  0,   0,  0), vec3(   W,    H,   .1), vec3(.25, .25, .75), 0 },  // back wall
+{ vec3(  0,   0,  D), vec3(   W,    H, D+.1), vec3(.75, .25, .25), 0 },  // front wall
+{ vec3(  0, -.1,  0), vec3(   W,    0,    D), vec3(.75, .75, .75), 0 },  // floor
+{ vec3(  0,   H,  0), vec3(   W, H+.1,    D), vec3(.75, .75, .75), 0 }   // ceiling
 };
 
 const Sphere spheres[NUM_SPHERES] = {
-{   1.0, vec3(    4.3,      1.0,      12.5), vec3(1),  0.0 },
-{   1.0, vec3(    1.7,      1.0,      11.2), vec3(1),  0.0 },
-{ 18.03, vec3(WIDTH/2, 18.0+5.0, DEPTH*3/4), vec3(1), 30.0 }   // light
+{     1, vec3(4.3,  1.0,  12.5), vec3(1),    0 },  // left sphere
+{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0 },  // right sphere
+{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0 }   // light
 };
 
 vec2 intersectBox(vec3 origin, vec3 direction, const Box b, out vec3 normal) {
@@ -121,7 +119,7 @@ vec2 intersectSphere(vec3 origin, vec3 direction, const Sphere s, out vec3 norma
  * @param info the variable in which to save intersection information
  * @return true if the ray intersects an object, false otherwise
  */
-bool intersect(vec3 origin, vec3 direction, out hitinfo info) {
+bool intersect(vec3 origin, vec3 direction, out HitInfo info) {
     vec2 ray_t = vec2(NEAR, FAR);
     bool found = false;
     vec3 normal;
@@ -163,14 +161,12 @@ vec3 radiance(vec3 origin, vec3 direction) {
     vec3 radiance = vec3(0.0);
 
     for (int bounce = 0; bounce < 3; bounce++) {
-        hitinfo hit;
-        vec3 normal;
-
+        HitInfo hit;
         if (!intersect(origin, direction, hit))
             break;
 
         vec3 hit_point = origin + direction * hit.t_near;
-        normal = hit.normal;
+        vec3 normal = hit.normal;
 
         vec3 color = vec3(1.0);
         float emission = 0;
@@ -188,11 +184,11 @@ vec3 radiance(vec3 origin, vec3 direction) {
 
         /*
          * Because of float precision the hit point may be a tad inside the sphere,
-         * so move the origin a bit along the normal just to be sure we are out
+         * so move the origin a bit along the normal just to be sure we are outside
          */
         origin = hit_point + normal * NEAR;
 
-        vec3 rand = random(vec3(pixel+bounce, time));
+        vec3 rand = random(vec3(pixel+bounce, u_Time));
         direction = cos_weighted_random_hemisphere_direction(normal, rand.xy);
     }
     // the ray did not hit any light source => the ray does not transport any light to the eye
@@ -239,10 +235,10 @@ void main(void) {
      * => direction = mix(ray00, ray10, weight.x) = mix(ray00, ray10, 1) = ray10
      * which is in fact the ray passing through the bottom-right corner.
      */
-    vec3 direction = mix(mix(ray00, ray01, weight.y), mix(ray10, ray11, weight.y), weight.x);
+    vec3 direction = mix(mix(u_Ray00, u_Ray01, weight.y), mix(u_Ray10, u_Ray11, weight.y), weight.x);
 
     // compute the color shooting the ray from the eye in the calculated direction
-    vec3 color = radiance(eye, normalize(direction));
+    vec3 color = radiance(u_Eye, normalize(direction));
 
     // store the color in our texture framebuffer
     imageStore(u_Framebuffer, pixel, vec4(color, 1.0));
