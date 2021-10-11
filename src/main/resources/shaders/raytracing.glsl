@@ -21,6 +21,7 @@ layout(binding = 0, rgba32f) uniform image2D u_Framebuffer;
  */
 uniform vec3 u_Eye, u_Ray00, u_Ray01, u_Ray10, u_Ray11;
 uniform float u_Time; // useful for random number generation
+uniform float u_BlendingFactor; // weigth of the old average with respect to the new frame
 
 #define NEAR 1E-4
 #define FAR 1E+10
@@ -237,8 +238,16 @@ void main(void) {
      */
     vec3 direction = mix(mix(u_Ray00, u_Ray01, weight.y), mix(u_Ray10, u_Ray11, weight.y), weight.x);
 
-    // compute the color shooting the ray from the eye in the calculated direction
-    vec3 color = radiance(u_Eye, normalize(direction));
+    // compute the pixel color shooting the ray from the eye in the calculated direction
+    vec3 newColor = radiance(u_Eye, normalize(direction));
+
+    // load the previous pixel color
+    vec3 oldColor= vec3(0);
+    if (u_BlendingFactor > 0)
+        oldColor = imageLoad(u_Framebuffer, pixel).rgb;
+
+    // interpolate the new color with the old one
+    vec3 color = mix(newColor, oldColor, u_BlendingFactor);
 
     // store the color in our texture framebuffer
     imageStore(u_Framebuffer, pixel, vec4(color, 1.0));
