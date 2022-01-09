@@ -28,7 +28,7 @@ uniform float u_BlendingFactor; // weigth of the old average with respect to the
 
 // decleare functions in random.glsl
 vec3 random(vec3 f);
-vec3 cos_weighted_random_hemisphere_direction(vec3 n, vec2 rand);
+vec3 cos_weighted_sample_on_hemisphere(vec3 n, vec2 rand);
 
 ivec2 pixel;
 
@@ -44,17 +44,21 @@ struct HitInfo {
  * http://kevinbeason.com/smallpt/
  * https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-%28Part-I%29
  */
+const struct {
+    uint diffuse, specular;
+} Material = {0, 1};
+
 struct Box {
     vec3 min, max;
     vec3 color;
     float emission;
 };
-
 struct Sphere {
     float radius;
     vec3 center;
     vec3 color;
     float emission;
+    uint material;
 };
 
 #define NUM_BOXES 6
@@ -71,9 +75,9 @@ const Box boxes[NUM_BOXES] = {
 };
 
 const Sphere spheres[NUM_SPHERES] = {
-{     1, vec3(4.3,  1.0,  12.5), vec3(1),    0 },  // left sphere
-{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0 },  // right sphere
-{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0 }   // light
+{     1, vec3(4.3,  1.0,  12.5), vec3(1),    0, Material.diffuse },  // left sphere
+{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0, Material.diffuse },  // right sphere
+{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0, Material.diffuse }   // light
 };
 
 vec2 intersectBox(vec3 origin, vec3 direction, const Box b, out vec3 normal) {
@@ -152,7 +156,29 @@ bool intersect(vec3 origin, vec3 direction, out HitInfo info) {
 }
 
 /**
- * For now, just return some shade of gray based on the sphere index.
+ * Samples a cosine weighted random point on the hemisphere around the
+ * given normal and outputs a vector passing through the point.
+ * source: https://stackoverflow.com/q/24758507
+ */
+vec3 diffuse_reflection(vec3 normal, vec3 rand) {
+    vec3 s = cos_weighted_sample_on_hemisphere(normal, rand.xy);
+    vec3 h = normal;
+    if (abs(h.x) <= abs(h.y) && abs(h.x) <= abs(h.z))
+    h.x= 1.0;
+    else if (abs(h.y) <= abs(h.x) && abs(h.y) <= abs(h.z))
+    h.y= 1.0;
+    else
+    h.z= 1.0;
+
+    vec3 u = normalize(cross(h,normal));
+    vec3 v = normalize(cross(u,normal));
+
+    vec3 direction = s.x * u + s.y * v + s.z * normal;
+    return normalize(direction);
+}
+
+/**
+ * Solve the rendering equation.
  * @param origin the starting point of the ray
  * @param direction the direction of the ray
  * @return the color of the pixel intersected by the ray
@@ -190,7 +216,7 @@ vec3 radiance(vec3 origin, vec3 direction) {
         origin = hit_point + normal * NEAR;
 
         vec3 rand = random(vec3(pixel+bounce, u_Time));
-        direction = cos_weighted_random_hemisphere_direction(normal, rand.xy);
+        direction = diffuse_reflection(normal, rand);
     }
     // the ray did not hit any light source => the ray does not transport any light to the eye
     return radiance;
