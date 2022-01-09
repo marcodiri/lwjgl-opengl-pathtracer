@@ -21,6 +21,7 @@ layout(binding = 0, rgba32f) uniform image2D u_Framebuffer;
  */
 uniform vec3 u_Eye, u_Ray00, u_Ray01, u_Ray10, u_Ray11;
 uniform float u_Time; // useful for random number generation
+uniform float u_BlendingFactor; // weigth of the old average with respect to the new frame
 
 #define NEAR 1E-4
 #define FAR 1E+10
@@ -61,10 +62,10 @@ struct Sphere {
 
 float W = 6, H = 5, D = 15;  // room width, height, depth
 const Box boxes[NUM_BOXES] = {
-{ vec3(  W,   0,  0), vec3(W+.1,    H,    D), vec3(.75, .75, .75), 0 },  // left wall
-{ vec3(-.1,   0,  0), vec3(   0,    H,    D), vec3(.75, .75, .75), 0 },  // right wall
-{ vec3(  0,   0,  0), vec3(   W,    H,   .1), vec3(.25, .25, .75), 0 },  // back wall
-{ vec3(  0,   0,  D), vec3(   W,    H, D+.1), vec3(.75, .25, .25), 0 },  // front wall
+{ vec3(  W,   0,  0), vec3(W+.1,    H,    D), vec3(.75, .25, .25), 0 },  // left wall
+{ vec3(-.1,   0,  0), vec3(   0,    H,    D), vec3(.25, .25, .75), 0 },  // right wall
+{ vec3(  0,   0,  0), vec3(   W,    H,   .1), vec3(.75, .75, .75), 0 },  // back wall
+{ vec3(  0,   0,  D), vec3(   W,    H, D+.1), vec3(.75, .75, .75), 0 },  // front wall
 { vec3(  0, -.1,  0), vec3(   W,    0,    D), vec3(.75, .75, .75), 0 },  // floor
 { vec3(  0,   H,  0), vec3(   W, H+.1,    D), vec3(.75, .75, .75), 0 }   // ceiling
 };
@@ -237,8 +238,16 @@ void main(void) {
      */
     vec3 direction = mix(mix(u_Ray00, u_Ray01, weight.y), mix(u_Ray10, u_Ray11, weight.y), weight.x);
 
-    // compute the color shooting the ray from the eye in the calculated direction
-    vec3 color = radiance(u_Eye, normalize(direction));
+    // compute the pixel color shooting the ray from the eye in the calculated direction
+    vec3 newColor = radiance(u_Eye, normalize(direction));
+
+    // load the previous pixel color
+    vec3 oldColor= vec3(0);
+    if (u_BlendingFactor > 0)
+        oldColor = imageLoad(u_Framebuffer, pixel).rgb;
+
+    // interpolate the new color with the old one
+    vec3 color = mix(newColor, oldColor, u_BlendingFactor);
 
     // store the color in our texture framebuffer
     imageStore(u_Framebuffer, pixel, vec4(color, 1.0));

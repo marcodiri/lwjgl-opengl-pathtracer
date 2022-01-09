@@ -84,6 +84,8 @@ public class MainLoop {
 		public static int program;
 		public static int u_Eye, u_Ray00, u_Ray01, u_Ray10, u_Ray11;
 		public static int u_Time;
+		public static int u_BlendingFactor;
+		public static int frameNumber;
 		public static int workGroupSizeX, workGroupSizeY; // in CUDA this would be the block size
 	}
 
@@ -155,6 +157,7 @@ public class MainLoop {
 		RayTracingProgram.u_Ray10 = glGetUniformLocation(RayTracingProgram.program, "u_Ray10");
 		RayTracingProgram.u_Ray11 = glGetUniformLocation(RayTracingProgram.program, "u_Ray11");
 		RayTracingProgram.u_Time = glGetUniformLocation(RayTracingProgram.program, "u_Time");
+		RayTracingProgram.u_BlendingFactor = glGetUniformLocation(RayTracingProgram.program, "u_BlendingFactor");
 		glUseProgram(0);
 	}
 
@@ -182,6 +185,21 @@ public class MainLoop {
 		viewMatrix.setLookAt(Eye.position, Eye.lookAt, Eye.up);
 
 		glUniform1f(RayTracingProgram.u_Time, time);
+
+		/*
+		 * Instead of blending more samples for each single frame,
+		 * we compute the weighted average of subsequent frames.
+		 * Starting with a black texture, the initial samples are going to be of most
+		 * importance wrt the average since are those which will discover the shapes in the scene,
+		 * while the late ones are going to fill in the details.
+		 * bf = n/(n+1) for n frame number
+		 * newAverage = currentFrame * (1-bf) + oldAverage * bf.
+		 */
+		float blendingFactor = RayTracingProgram.frameNumber / (RayTracingProgram.frameNumber + 1.0f);
+		glUniform1f(RayTracingProgram.u_BlendingFactor, blendingFactor);
+
+		if (RayTracingProgram.frameNumber < Integer.MAX_VALUE)
+			RayTracingProgram.frameNumber++;
 
 		// set the eye position and frustum uniform variables (world coordinates)
 		glUniform3f(RayTracingProgram.u_Eye, Eye.position.x, Eye.position.y, Eye.position.z);
