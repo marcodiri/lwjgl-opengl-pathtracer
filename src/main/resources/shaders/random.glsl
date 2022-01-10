@@ -3,12 +3,7 @@
 #define PI     3.14159265359
 #define TWO_PI 6.28318530718
 
-/**
- * Samples a cosine weighted random point on the hemisphere around the
- * given normal 'n' and outputs a vector passing through the point.
- * source: https://stackoverflow.com/q/24758507
- */
-vec3 cos_weighted_random_hemisphere_direction(vec3 n, vec2 rand) {
+vec3 cos_weighted_sample_on_hemisphere(vec3 n, vec2 rand) {
     float cos_theta = sqrt(1.0-rand.x);
     float sin_theta = sqrt(rand.x);
     float phi = TWO_PI * rand.y;
@@ -17,19 +12,7 @@ vec3 cos_weighted_random_hemisphere_direction(vec3 n, vec2 rand) {
     float ys = sin_theta * sin(phi);
     float zs = cos_theta;
 
-    vec3 h = n;
-    if (abs(h.x) <= abs(h.y) && abs(h.x) <= abs(h.z))
-        h.x= 1.0;
-    else if (abs(h.y) <= abs(h.x) && abs(h.y) <= abs(h.z))
-        h.y= 1.0;
-    else
-        h.z= 1.0;
-
-    vec3 u = normalize(cross(h,n));
-    vec3 v = normalize(cross(u,n));
-
-    vec3 direction = xs * u + ys * v + zs * n;
-    return normalize(direction);
+    return vec3(xs, ys, zs);
 }
 
 /**
