@@ -75,7 +75,7 @@ const Box boxes[NUM_BOXES] = {
 };
 
 const Sphere spheres[NUM_SPHERES] = {
-{     1, vec3(4.3,  1.0,  12.5), vec3(1),    0, Material.diffuse },  // left sphere
+{     1, vec3(4.3,  1.0,  12.5), vec3(1),    0, Material.specular },  // left sphere
 {     1, vec3(1.7,  1.0,  11.2), vec3(1),    0, Material.diffuse },  // right sphere
 { 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0, Material.diffuse }   // light
 };
@@ -178,6 +178,13 @@ vec3 diffuse_reflection(vec3 normal, vec3 rand) {
 }
 
 /**
+ * Reflection of an ideally reflecting material (mirror)
+ */
+vec3 ideal_specular_reflection(vec3 direction, vec3 normal) {
+    return direction - 2.0 * dot(direction, normal) * normal;
+}
+
+/**
  * Solve the rendering equation.
  * @param origin the starting point of the ray
  * @param direction the direction of the ray
@@ -187,7 +194,7 @@ vec3 radiance(vec3 origin, vec3 direction) {
     vec3 albedo = vec3(1.0); // amount of incoming light that gets reflected off the surface
     vec3 radiance = vec3(0.0);
 
-    for (int bounce = 0; bounce < 3; bounce++) {
+    for (int bounce = 0; bounce < 4; bounce++) {
         HitInfo hit;
         if (!intersect(origin, direction, hit))
             break;
@@ -197,10 +204,12 @@ vec3 radiance(vec3 origin, vec3 direction) {
 
         vec3 color = vec3(1.0);
         float emission = 0;
+        uint material = Material.diffuse;
         if (hit.isSphere) {
             Sphere s = spheres[hit.id];
             color = s.color;
             emission = s.emission;
+            material = s.material;
         } else {
             Box b = boxes[hit.id];
             color = b.color;
@@ -215,8 +224,12 @@ vec3 radiance(vec3 origin, vec3 direction) {
          */
         origin = hit_point + normal * NEAR;
 
-        vec3 rand = random(vec3(pixel+bounce, u_Time));
-        direction = diffuse_reflection(normal, rand);
+        if (material == Material.specular) {
+            direction = ideal_specular_reflection(direction, normal);
+        } else {
+            vec3 rand = random(vec3(pixel+bounce, u_Time));
+            direction = diffuse_reflection(normal, rand);
+        }
     }
     // the ray did not hit any light source => the ray does not transport any light to the eye
     return radiance;
