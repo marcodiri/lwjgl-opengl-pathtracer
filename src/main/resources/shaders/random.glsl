@@ -33,38 +33,17 @@ vec3 cos_weighted_random_hemisphere_direction(vec3 n, vec2 rand) {
 }
 
 /**
- * Hash function to be used with the random number generator.
- */
-uvec3 pcg3d(uvec3 v) {
-    v = v * 1664525u + 1013904223u;
-    v.x += v.y * v.z;
-    v.y += v.z * v.x;
-    v.z += v.x * v.y;
-    v ^= v >> 16u;
-    v.x += v.y * v.z;
-    v.y += v.z * v.x;
-    v.z += v.x * v.y;
-    return v;
-}
-
-/**
  * Generate random numbers in [0,1).
  * The hash function can be anything good and fast.
+ * This is very important as it changes the convercence properties of the scene.
  * A long list can be found here: https://www.shadertoy.com/view/XlGcRh
- * I chose pcg4d to generate a vector of 4 random numbers at once,
- * if you use a hash returning a single float you can just call the function
- * more times (with a different input).
- * source: https://amindforeverprogramming.blogspot.com/2013/07/random-floats-in-glsl-330.html
  */
+vec3 hashwithoutsine33(vec3 p3) {
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz+33.33);
+    return fract((p3.xxy + p3.yxx)*p3.zyx);
+}
+
 vec3 random(vec3 f) {
-    const uint mantissaMask = 0x007FFFFFu;
-    const uint one          = 0x3F800000u;
-
-    uvec3 s = floatBitsToUint(f);
-    uvec3 h = pcg3d(s);
-    h &= mantissaMask;
-    h |= one;
-
-    vec3  r2 = uintBitsToFloat(h);
-    return r2 - 1.0;
+    return hashwithoutsine33(f);
 }
