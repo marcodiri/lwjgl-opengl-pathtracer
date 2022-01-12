@@ -76,62 +76,78 @@ const Box boxes[NUM_BOXES] = {
 
 const Sphere spheres[NUM_SPHERES] = {
 {     1, vec3(4.3,  1.0,  12.5), vec3(1),    0, Material.specular },  // left sphere
-{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0, Material.diffuse },  // right sphere
-{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0, Material.diffuse }   // light
+{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0, Material.diffuse  },  // right sphere
+{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0, Material.diffuse  }   // light
 };
 
-vec2 intersectBox(vec3 origin, vec3 direction, const Box b, out vec3 normal) {
+bool intersectBox(vec3 origin, vec3 direction, const Box b, const vec2 ray_t, out vec3 t_vec, out float t) {
     vec3 tMin = (b.min - origin) / direction;
     vec3 tMax = (b.max - origin) / direction;
     vec3 t1 = min(tMin, tMax);
-    vec3 t2 = max(tMin, tMax);
+
     float tmin = max(max(t1.x, t1.y), t1.z);
-    float tmax = min(min(t2.x, t2.y), t2.z);
-    normal = vec3(equal(t1, vec3(tmin))) * sign(-direction);
-    return vec2(tmin, tmax);
+    // ray origin outside box
+    if (0.0 < tmin && tmin < ray_t.y) {
+        t_vec = t1;
+        t = tmin;
+        return true;
+    }
+
+    // FIXME: ray origin inside box not implemented
+    // vec3 t2 = max(tMin, tMax);
+    // float tmax = min(min(t2.x, t2.y), t2.z);
+
+    return false;
 }
 
-/**
- * Computes the value of the parameter t=(tmin,tmax) at the enter and exit point
- * of the ray = 'origin + t * direction' in the sphere.
- * If no intersection is found t=(-1,-1).
- * @param origin the starting point of the ray
- * @param direction the direction of the ray
- * @param s the sphere testing for intersection
- * @return (tmin,tmax) if intersection is found or (-1,-1) otherwise
- */
-vec2 intersectSphere(vec3 origin, vec3 direction, const Sphere s) {
+bool intersectSphere(vec3 origin, vec3 direction, const Sphere s, const vec2 ray_t, out float t) {
     vec3 op = s.center - origin;
     float dop = dot(op, direction);
     float D = dop * dop - dot(op, op) + s.radius * s.radius;
     if (D < 0)
-        return vec2(-1.0);
+        // no intersection
+        return false;
+
     float sqrtD = sqrt(D);
+
     float tmin = dop - sqrtD;
+    // ray origin outside sphere
+    if (ray_t.x < tmin && tmin < ray_t.y) {
+        t = tmin;
+        return true;
+    }
+
     float tmax = dop + sqrtD;
+    // ray origin inside sphere
+    if (ray_t.x < tmax && tmax < ray_t.y) {
+        t = tmax;
+        return true;
+    }
+
     // if tmax < 0 the sphere is behind
-    return vec2(tmin, tmax);
+    return false;
 }
 
 /**
  * Computes the intersection between the ray and every object and returns
- * information in the 'info' output varible.
+ * information in the 'hit' output varible.
  * @param origin the starting point of the ray
  * @param direction the direction of the ray
- * @param info the variable in which to save intersection information
+ * @param hit the variable in which to save intersection information
  * @return true if the ray intersects an object, false otherwise
  */
 bool intersect(vec3 origin, vec3 direction, out HitInfo hit) {
     vec2 ray_t = vec2(NEAR, FAR);
+    float t = FAR;
+    vec3 normal;
     bool found = false;
 
     for (int i = 0; i < NUM_BOXES; i++) {
-        vec3 normal;
-        vec2 t = intersectBox(origin, direction, boxes[i], normal);
-        if (t.y >= 0.0 && t.x < t.y && t.x < ray_t.y) {
-            ray_t.y = t.x;
-            hit.t_near = t.x;
-            hit.normal = normal;
+        vec3 t_vec = vec3(-1);
+        if (intersectBox(origin, direction, boxes[i], ray_t, t_vec, t)) {
+            ray_t.y = t;
+            hit.t_near = ray_t.y;
+            hit.normal = vec3(equal(t_vec, vec3(ray_t.y))) * sign(-direction);
             hit.id = i;
             hit.isSphere = false;
             found = true;
@@ -139,26 +155,16 @@ bool intersect(vec3 origin, vec3 direction, out HitInfo hit) {
     }
 
     for (int i = 0; i < NUM_SPHERES; i++) {
-        vec2 t = intersectSphere(origin, direction, spheres[i]);
-        // out to in
-        if (ray_t.x < t.x && t.x < ray_t.y) {
-            ray_t.y = t.x;
+        if (intersectSphere(origin, direction, spheres[i], ray_t, t)) {
+            ray_t.y = t;
             hit.t_near = ray_t.y;
-            hit.normal = normalize(origin + hit.t_near * direction - spheres[i].center);
-            hit.id = i;
-            hit.isSphere = true;
-            found = true;
-        }
-        // in to out
-        else if (ray_t.x < t.y && t.y < ray_t.y) {
-            ray_t.y = t.y;
-            hit.t_near = ray_t.y;
-            hit.normal = normalize(origin + hit.t_near * direction - spheres[i].center);
+            hit.normal = normalize(origin + ray_t.y * direction - spheres[i].center);
             hit.id = i;
             hit.isSphere = true;
             found = true;
         }
     }
+
     return found;
 }
 
