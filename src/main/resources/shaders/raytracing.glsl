@@ -34,7 +34,7 @@ ivec2 pixel;
 
 struct HitInfo {
     float t_near;
-    vec3 normal;
+    vec3 t_vec;
     int id;
     bool isSphere;
 };
@@ -76,82 +76,94 @@ const Box boxes[NUM_BOXES] = {
 
 const Sphere spheres[NUM_SPHERES] = {
 {     1, vec3(4.3,  1.0,  12.5), vec3(1),    0, Material.specular },  // left sphere
-{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0, Material.diffuse },  // right sphere
-{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0, Material.diffuse }   // light
+{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0, Material.diffuse  },  // right sphere
+{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0, Material.diffuse  }   // light
 };
 
-vec2 intersectBox(vec3 origin, vec3 direction, const Box b, out vec3 normal) {
+bool intersectBox(vec3 origin, vec3 direction, const Box b, const vec2 ray_t, out vec3 t_vec, out float t) {
     vec3 tMin = (b.min - origin) / direction;
     vec3 tMax = (b.max - origin) / direction;
     vec3 t1 = min(tMin, tMax);
-    vec3 t2 = max(tMin, tMax);
+
     float tmin = max(max(t1.x, t1.y), t1.z);
-    float tmax = min(min(t2.x, t2.y), t2.z);
-    normal = vec3(equal(t1, vec3(tmin))) * sign(-direction);
-    return vec2(tmin, tmax);
+    // ray origin outside box
+    if (0.0 < tmin && tmin < ray_t.y) {
+        t_vec = t1;
+        t = tmin;
+        return true;
+    }
+
+    // FIXME: ray origin inside box not implemented
+    // vec3 t2 = max(tMin, tMax);
+    // float tmax = min(min(t2.x, t2.y), t2.z);
+
+    return false;
 }
 
-/**
- * Computes the value of the parameter t=(tmin,tmax) at the enter and exit point
- * of the ray = 'origin + t * direction' in the sphere.
- * If no intersection is found t=(-1,-1).
- * @param origin the starting point of the ray
- * @param direction the direction of the ray
- * @param s the sphere testing for intersection
- * @return (tmin,tmax) if intersection is found or (-1,-1) otherwise
- */
-vec2 intersectSphere(vec3 origin, vec3 direction, const Sphere s, out vec3 normal) {
+bool intersectSphere(vec3 origin, vec3 direction, const Sphere s, const vec2 ray_t, out float t) {
     vec3 op = s.center - origin;
     float dop = dot(op, direction);
     float D = dop * dop - dot(op, op) + s.radius * s.radius;
     if (D < 0)
-        return vec2(-1.0);
+        // no intersection
+        return false;
+
     float sqrtD = sqrt(D);
+
     float tmin = dop - sqrtD;
+    // ray origin outside sphere
+    if (ray_t.x < tmin && tmin < ray_t.y) {
+        t = tmin;
+        return true;
+    }
+
     float tmax = dop + sqrtD;
-    normal = normalize(origin + tmin * direction - s.center);
+    // ray origin inside sphere
+    if (ray_t.x < tmax && tmax < ray_t.y) {
+        t = tmax;
+        return true;
+    }
+
     // if tmax < 0 the sphere is behind
-    if (tmin < tmax && tmax >= 0.0)
-        return vec2(tmin, tmax);
-    return vec2(-1.0);
+    return false;
 }
 
 /**
  * Computes the intersection between the ray and every object and returns
- * information in the 'info' output varible.
+ * information in the 'hit' output varible.
  * @param origin the starting point of the ray
  * @param direction the direction of the ray
- * @param info the variable in which to save intersection information
+ * @param hit the variable in which to save intersection information
  * @return true if the ray intersects an object, false otherwise
  */
-bool intersect(vec3 origin, vec3 direction, out HitInfo info) {
+bool intersect(vec3 origin, vec3 direction, out HitInfo hit) {
     vec2 ray_t = vec2(NEAR, FAR);
-    bool found = false;
+    float t = FAR;
     vec3 normal;
+    bool found = false;
 
     for (int i = 0; i < NUM_BOXES; i++) {
-        vec2 t = intersectBox(origin, direction, boxes[i], normal);
-        if (t.y >= 0.0 && t.x < t.y && t.x < ray_t.y) {
-            ray_t.y = t.x;
-            info.t_near = t.x;
-            info.normal = normal;
-            info.id = i;
-            info.isSphere = false;
+        vec3 t_vec;
+        if (intersectBox(origin, direction, boxes[i], ray_t, t_vec, t)) {
+            ray_t.y = t;
+            hit.t_near = ray_t.y;
+            hit.t_vec = t_vec;
+            hit.id = i;
+            hit.isSphere = false;
             found = true;
         }
     }
 
     for (int i = 0; i < NUM_SPHERES; i++) {
-        vec2 t = intersectSphere(origin, direction, spheres[i], normal);
-        if (t.y >= 0.0 && t.x < t.y && t.x < ray_t.y) {
-            ray_t.y = t.x;
-            info.t_near = t.x;
-            info.normal = normal;
-            info.id = i;
-            info.isSphere = true;
+        if (intersectSphere(origin, direction, spheres[i], ray_t, t)) {
+            ray_t.y = t;
+            hit.t_near = ray_t.y;
+            hit.id = i;
+            hit.isSphere = true;
             found = true;
         }
     }
+
     return found;
 }
 
@@ -164,11 +176,11 @@ vec3 diffuse_reflection(vec3 normal, vec3 rand) {
     vec3 s = cos_weighted_sample_on_hemisphere(normal, rand.xy);
     vec3 h = normal;
     if (abs(h.x) <= abs(h.y) && abs(h.x) <= abs(h.z))
-    h.x= 1.0;
+        h.x= 1.0;
     else if (abs(h.y) <= abs(h.x) && abs(h.y) <= abs(h.z))
-    h.y= 1.0;
+        h.y= 1.0;
     else
-    h.z= 1.0;
+        h.z= 1.0;
 
     vec3 u = normalize(cross(h,normal));
     vec3 v = normalize(cross(u,normal));
@@ -200,27 +212,34 @@ vec3 radiance(vec3 origin, vec3 direction) {
             break;
 
         vec3 hit_point = origin + direction * hit.t_near;
-        vec3 normal = hit.normal;
+        vec3 normal;
 
         vec3 color = vec3(1.0);
         float emission = 0;
         uint material = Material.diffuse;
         if (hit.isSphere) {
             Sphere s = spheres[hit.id];
+            normal = normalize(origin + hit.t_near * direction - s.center);
             color = s.color;
             emission = s.emission;
             material = s.material;
         } else {
             Box b = boxes[hit.id];
+            normal = vec3(equal(hit.t_vec, vec3(hit.t_near))) * sign(-direction);
             color = b.color;
             emission = b.emission;
         }
         albedo *= color;
         radiance += albedo * emission;
 
+        // flip the normal in case the ray originated inside the object
+        bool outside = dot(direction, normal) < 0;
+        normal = outside ? normal : -normal;
+
         /*
+         * Set the hit point as the origin of the bounce ray.
          * Because of float precision the hit point may be a tad inside the sphere,
-         * so move the origin a bit along the normal just to be sure we are outside
+         * so move the origin a bit along the normal to be sure we are outside the object.
          */
         origin = hit_point + normal * NEAR;
 
