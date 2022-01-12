@@ -23,7 +23,7 @@ uniform vec3 u_Eye, u_Ray00, u_Ray01, u_Ray10, u_Ray11;
 uniform float u_Time; // useful for random number generation
 uniform float u_BlendingFactor; // weigth of the old average with respect to the new frame
 
-#define NEAR 1E-4
+#define NEAR 1E-3
 #define FAR 1E+10
 
 // decleare functions in random.glsl
@@ -45,8 +45,8 @@ struct HitInfo {
  * https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-%28Part-I%29
  */
 const struct {
-    uint diffuse, specular;
-} Material = {0, 1};
+    uint diffuse, specular, refractive;
+} Material = {0, 1, 2};
 
 struct Box {
     vec3 min, max;
@@ -75,9 +75,9 @@ const Box boxes[NUM_BOXES] = {
 };
 
 const Sphere spheres[NUM_SPHERES] = {
-{     1, vec3(4.3,  1.0,  12.5), vec3(1),    0, Material.specular },  // left sphere
-{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0, Material.diffuse  },  // right sphere
-{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0, Material.diffuse  }   // light
+{     1, vec3(4.3,  1.0,  12.5), vec3(1),    0, Material.specular   },  // left sphere
+{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0, Material.refractive },  // right sphere
+{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0, Material.diffuse    }   // light
 };
 
 bool intersectBox(vec3 origin, vec3 direction, const Box b, const vec2 ray_t, out vec3 t_vec, out float t) {
@@ -172,7 +172,7 @@ bool intersect(vec3 origin, vec3 direction, out HitInfo hit) {
  * given normal and outputs a vector passing through the point.
  * source: https://stackoverflow.com/q/24758507
  */
-vec3 diffuse_reflection(vec3 normal, vec3 rand) {
+vec3 diffuse_reflect(vec3 normal, vec3 rand) {
     vec3 s = cos_weighted_sample_on_hemisphere(normal, rand.xy);
     vec3 h = normal;
     if (abs(h.x) <= abs(h.y) && abs(h.x) <= abs(h.z))
@@ -192,8 +192,50 @@ vec3 diffuse_reflection(vec3 normal, vec3 rand) {
 /**
  * Reflection of an ideally reflecting material (mirror)
  */
-vec3 ideal_specular_reflection(vec3 direction, vec3 normal) {
+vec3 ideal_specular_reflect(vec3 direction, vec3 normal) {
     return direction - 2.0 * dot(direction, normal) * normal;
+}
+
+/*
+ * Refraction effect of refractive material (glass)
+ */
+float n_out = 1.0; // vacuum refractive index
+float n_in = 1.5;  // glass refractive index
+
+float reflectance0(float n1, float n2) {
+    float sqrt_R0 = (n1 - n2) / (n1 + n2);
+    return sqrt_R0 * sqrt_R0;
+}
+
+float schlick_reflectance(float n1, float n2, float c) {
+    float R0 = reflectance0(n1, n2);
+    return R0 + (1.0 - R0) * c * c * c * c * c;
+}
+
+vec4 ideal_specular_transmit(vec3 d, vec3 n, bool out_to_in, vec3 rand) {
+    vec3 d_Re = ideal_specular_reflect(d, n);
+    float nn = out_to_in ? n_out/n_in : n_in/n_out;
+    float cos_theta = dot(d, n);
+    float cos2_phi = 1.0 - nn * nn * (1.0 - cos_theta * cos_theta);
+
+    // total internal reflection
+    if (cos2_phi < 0) {
+        return vec4(d_Re, 1.0);
+    }
+
+    vec3 d_Tr = normalize(nn * d - n * (nn * cos_theta + sqrt(cos2_phi)));
+    float c = 1.0 - (out_to_in ? -cos_theta : dot(d_Tr, -n));
+
+    float Re = schlick_reflectance(n_out, n_in, c);
+    float p_Re = 0.25 + 0.5 * Re;
+    if (rand.x < p_Re){
+        return vec4(d_Re, Re/p_Re);
+    } else {
+        float Tr = 1.0 - Re;
+        float p_Tr = 1.0 - p_Re;
+        return vec4(d_Tr, Tr/p_Tr);
+    }
+
 }
 
 /**
@@ -206,7 +248,7 @@ vec3 radiance(vec3 origin, vec3 direction) {
     vec3 albedo = vec3(1.0); // amount of incoming light that gets reflected off the surface
     vec3 radiance = vec3(0.0);
 
-    for (int bounce = 0; bounce < 4; bounce++) {
+    for (int bounce = 0; bounce < 6; bounce++) {
         HitInfo hit;
         if (!intersect(origin, direction, hit))
             break;
@@ -233,21 +275,27 @@ vec3 radiance(vec3 origin, vec3 direction) {
         radiance += albedo * emission;
 
         // flip the normal in case the ray originated inside the object
-        bool outside = dot(direction, normal) < 0;
-        normal = outside ? normal : -normal;
+        bool out_to_in = dot(direction, normal) < 0;
+        normal = out_to_in ? normal : -normal;
 
         /*
          * Set the hit point as the origin of the bounce ray.
          * Because of float precision the hit point may be a tad inside the sphere,
          * so move the origin a bit along the normal to be sure we are outside the object.
          */
-        origin = hit_point + normal * NEAR;
+        origin = hit_point + normal * 1E-3;
 
         if (material == Material.specular) {
-            direction = ideal_specular_reflection(direction, normal);
+            direction = ideal_specular_reflect(direction, normal);
+        } else if (material == Material.refractive) {
+            vec3 rand = random(vec3(pixel+bounce, u_Time));
+            vec4 r = ideal_specular_transmit(direction, normal, out_to_in, rand);
+            origin = hit_point - normal * 1E-5;
+            direction = r.xyz;
+            albedo *= r.w;
         } else {
             vec3 rand = random(vec3(pixel+bounce, u_Time));
-            direction = diffuse_reflection(normal, rand);
+            direction = diffuse_reflect(normal, rand);
         }
     }
     // the ray did not hit any light source => the ray does not transport any light to the eye
