@@ -68,16 +68,17 @@ float W = 6, H = 5, D = 15;  // room width, height, depth
 const Box boxes[NUM_BOXES] = {
 { vec3(  W,   0,  0), vec3(W+.1,    H,    D), vec3(.75, .25, .25), 0 },  // left wall
 { vec3(-.1,   0,  0), vec3(   0,    H,    D), vec3(.25, .25, .75), 0 },  // right wall
-{ vec3(  0,   0,  0), vec3(   W,    H,   .1), vec3(.75, .75, .75), 0 },  // back wall
+{ vec3(  0,   0,  0), vec3(   W,    H,   .1), vec3(0.0, 0.0, 0.0), 0 },  // back wall
 { vec3(  0,   0,  D), vec3(   W,    H, D+.1), vec3(.75, .75, .75), 0 },  // front wall
 { vec3(  0, -.1,  0), vec3(   W,    0,    D), vec3(.75, .75, .75), 0 },  // floor
 { vec3(  0,   H,  0), vec3(   W, H+.1,    D), vec3(.75, .75, .75), 0 }   // ceiling
 };
 
 const Sphere spheres[NUM_SPHERES] = {
-{     1, vec3(4.3,  1.0,  12.5), vec3(1),    0, Material.specular   },  // left sphere
-{     1, vec3(1.7,  1.0,  11.2), vec3(1),    0, Material.refractive },  // right sphere
-{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(1), 30.0, Material.diffuse    }   // light
+// color must be max .99 to be sure we eventually exit russian roulette
+{     1, vec3(4.3,  1.0,  12.5), vec3(.99),    0, Material.specular   },  // left sphere
+{     1, vec3(1.7,  1.0,  11.2), vec3(.99),    0, Material.refractive },  // right sphere
+{ 18.03, vec3(W/2, 18+H, D*3/4), vec3(0.0), 30.0, Material.diffuse    }   // light
 };
 
 bool intersectBox(vec3 origin, vec3 direction, const Box b, const vec2 ray_t, out vec3 t_vec, out float t) {
@@ -228,7 +229,7 @@ vec4 ideal_specular_transmit(vec3 d, vec3 n, bool out_to_in, vec3 rand) {
 
     float Re = schlick_reflectance(n_out, n_in, c);
     float p_Re = 0.25 + 0.5 * Re;
-    if (rand.x < p_Re){
+    if (rand.z < p_Re){
         return vec4(d_Re, Re/p_Re);
     } else {
         float Tr = 1.0 - Re;
@@ -248,7 +249,8 @@ vec3 radiance(vec3 origin, vec3 direction) {
     vec3 albedo = vec3(1.0); // amount of incoming light that gets reflected off the surface
     vec3 radiance = vec3(0.0);
 
-    for (int bounce = 0; bounce < 6; bounce++) {
+    uint bounce = 0;
+    while (true) {
         HitInfo hit;
         if (!intersect(origin, direction, hit))
             break;
@@ -271,8 +273,17 @@ vec3 radiance(vec3 origin, vec3 direction) {
             color = b.color;
             emission = b.emission;
         }
-        albedo *= color;
         radiance += albedo * emission;
+        albedo *= color;
+
+        vec3 rand = random(vec3(pixel+bounce, u_Time));
+        // russian roulette
+        if (bounce > 3) {
+            float prob = max(max(color.r, color.g), color.b);
+            if (rand.x > prob) {
+                break;
+            }
+        }
 
         // flip the normal in case the ray originated inside the object
         bool out_to_in = dot(direction, normal) < 0;
@@ -288,17 +299,17 @@ vec3 radiance(vec3 origin, vec3 direction) {
         if (material == Material.specular) {
             direction = ideal_specular_reflect(direction, normal);
         } else if (material == Material.refractive) {
-            vec3 rand = random(vec3(pixel+bounce, u_Time));
             vec4 r = ideal_specular_transmit(direction, normal, out_to_in, rand);
             origin = hit_point - normal * 1E-5;
             direction = r.xyz;
             albedo *= r.w;
         } else {
-            vec3 rand = random(vec3(pixel+bounce, u_Time));
             direction = diffuse_reflect(normal, rand);
         }
+
+        bounce++;
     }
-    // the ray did not hit any light source => the ray does not transport any light to the eye
+
     return radiance;
 }
 
