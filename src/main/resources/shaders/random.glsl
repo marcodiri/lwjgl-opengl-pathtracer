@@ -3,7 +3,7 @@
 #define PI     3.14159265359
 #define TWO_PI 6.28318530718
 
-vec3 cos_weighted_sample_on_hemisphere(vec3 n, vec2 rand) {
+vec3 cos_weighted_sample_on_hemisphere(vec2 rand) {
     float cos_theta = sqrt(1.0-rand.x);
     float sin_theta = sqrt(rand.x);
     float phi = TWO_PI * rand.y;

@@ -28,7 +28,7 @@ uniform float u_BlendingFactor; // weigth of the old average with respect to the
 
 // decleare functions in random.glsl
 vec3 random(vec3 f);
-vec3 cos_weighted_sample_on_hemisphere(vec3 n, vec2 rand);
+vec3 cos_weighted_sample_on_hemisphere(vec2 rand);
 
 ivec2 pixel;
 
@@ -174,7 +174,7 @@ bool intersect(vec3 origin, vec3 direction, out HitInfo hit) {
  * source: https://stackoverflow.com/q/24758507
  */
 vec3 diffuse_reflect(vec3 normal, vec3 rand) {
-    vec3 s = cos_weighted_sample_on_hemisphere(normal, rand.xy);
+    vec3 s = cos_weighted_sample_on_hemisphere(rand.xy);
     vec3 h = normal;
     if (abs(h.x) <= abs(h.y) && abs(h.x) <= abs(h.z))
         h.x= 1.0;
