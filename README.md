@@ -7,6 +7,7 @@ This project uses **Maven** to manage its dependencies, LWJGL and [JOML](https:/
 After the build you can remove the downloaded dependencies folders `.m2/repository/org/lwjgl` and `.m2/repository/org/joml`, or remove the `.m2` folder entirely if you do not use Maven yourself.
 
 ## Building
+### Terminal
 1. Clone the repo:
 ```bash
 $ git clone https://github.com/marcodiri/lwjgl-opengl-pathtracer.git
@@ -23,6 +24,8 @@ $ ./mvnw clean package
 $ .\mvnw clean package
 ```
 You'll find the compiled jar in the *target* folder.
+### IDE
+Load as existing Maven project in Intellij IDEA or Eclipse and build/run from there.
 
 ## Running
 Build the jar following the steps in the [Building](#Building) section.<br />
@@ -30,3 +33,8 @@ To launch the application, run the generated *lwjgl-opengl-pathtracer-\*.jar* in
 ```bash
 $ java -jar target/lwjgl-opengl-pathtracer-1.0-SNAPSHOT.jar
 ```
+
+## Preview
+Rendered scene after some seconds after starting the program:
+
+![render preview](https://raw.githubusercontent.com/marcodiri/lwjgl-opengl-pathtracer/master/preview.png)
