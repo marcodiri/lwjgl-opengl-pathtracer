@@ -25,7 +25,7 @@ $ .\mvnw clean package
 ```
 You'll find the compiled jar in the *target* folder.
 ### IDE
-Load as existing Maven project in Intellij IDEA or Eclipse and build/run from there.
+Load as existing Maven project in Intellij IDEA or Eclipse with M2E plugin and build/run from there.
 
 ## Running
 Build the jar following the steps in the [Building](#Building) section.<br />
