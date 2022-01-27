@@ -1,8 +1,8 @@
 # Simple LWGJL OpenGL Path Tracer
 This project is a simple **OpenGL** path tracer developed in **Java 8** using the library [LWJGL](https://www.lwjgl.org/), based on the   [Ray tracing with OpenGL guide by Kai Burjack](https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-%28Part-I%29)  and on [smallPT by Kevin Beason](http://kevinbeason.com/smallpt/).
 
-## Dependencies
-You'll need **Java >= 8** to run the compiled jar.<br />
+## Requirements
+You'll need hardware supporting **GLSL >= 4.30** (on Linux you can check with `glxinfo | grep OpenGL`) and **[JDK](https://www.oracle.com/java/technologies/downloads/) >= 8** to run the compiled jar.<br />
 This project uses **Maven** to manage its dependencies, LWJGL and [JOML](https://github.com/JOML-CI/JOML), that will be automatically downloaded by Maven, when building the jar, in the  `.m2` folder under your user's home directory.
 After the build you can remove the downloaded dependencies folders `.m2/repository/org/lwjgl` and `.m2/repository/org/joml`, or remove the `.m2` folder entirely if you do not use Maven yourself.
 
@@ -18,6 +18,7 @@ $ git clone https://github.com/marcodiri/lwjgl-opengl-pathtracer.git
 $ cd lwjgl-opengl-pathtracer
 
 # Unix
+$ chmod +x mvnw
 $ ./mvnw clean package
 
 # Windows
