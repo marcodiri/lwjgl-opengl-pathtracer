@@ -209,22 +209,21 @@ public class MainLoop {
 		 * Our frustum is defined by the four rays originating from the eye and passing
 		 * through the near plane corners as described in:
 		 * https://github.com/LWJGL/lwjgl3-wiki/wiki/2.6.1.-Ray-tracing-with-OpenGL-Compute-Shaders-%28Part-I%29#camera
-		 * The corners of our window are in normalized device coordinates, so they would be:
-		 * (-1,-1), (-1,1), (1,-1) and (1,1)
-		 * Those corners, though, are clip coordinates introduced in Lecture 04-B "Camera Model: Projection",
-		 * thus we must first convert them to world coordinates to then find the rays.
-		 * We know that (clip coord) = ProjMatrix * ViewMatrix * (world coord)
-		 * => (world coord) = (clip coord) * (ProjMatrix * ViewMatrix)^(-1)
-		 * we also need to divide them by the 4th coordinate because in clip coordinates
-		 * it is not necessarily a zero or a one: (world coord affine) = (world coord) / w.
+		 * The corners of our window are in normalized device coordinates introduced in
+		 * Lecture 04-B "Camera Model: Projection", so they would be: (-1,-1), (-1,1), (1,-1) and (1,1)
+		 * Thus we must first convert them to world coordinates to then find the rays.
+		 * We know that (norm dev coord) = ProjMatrix * ViewMatrix * (world coord)
+		 * => (world coord) = (ProjMatrix * ViewMatrix)^(-1) * (norm dev coord)
+		 * we also need to divide them by the 4th coordinate because it is not necessarily one:
+		 * (world coord affine) = (world coord) / w.
 		 * Finally, we subtract the corner and the eye to obtain the ray vector.
 		 */
 
 		// corner (-1,-1)
 		tmp.set(-1, -1, 0);
 		// invViewProjMatrix = (projMatrix * viewMatrix)^(-1)
-		projMatrix.invertPerspectiveView(viewMatrix, invViewProjMatrix);
-		// corner * invViewProjMatrix; corner /= corner.w
+		invViewProjMatrix.set(projMatrix).mul(viewMatrix).invert();
+		// invViewProjMatrix * corner; corner /= corner.w
 		tmp.mulProject(invViewProjMatrix);
 		// ray = corner - eye
 		tmp.sub(Eye.position);
